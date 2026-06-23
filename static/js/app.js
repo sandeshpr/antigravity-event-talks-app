@@ -18,6 +18,7 @@ const pulseDot = document.querySelector('.pulse-dot');
 const searchInput = document.getElementById('search-input');
 const clearSearchBtn = document.getElementById('clear-search-btn');
 const typeFiltersList = document.getElementById('type-filters-list');
+const exportCsvBtn = document.getElementById('export-csv-btn');
 
 // Composer DOM Elements
 const composerSidebar = document.getElementById('composer-sidebar');
@@ -54,6 +55,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Type filters event delegation
     typeFiltersList.addEventListener('click', handleFilterClick);
+    
+    // Export CSV event
+    exportCsvBtn.addEventListener('click', exportToCSV);
     
     // Composer settings toggles
     toggleUrlBtn.addEventListener('click', toggleUrlOption);
@@ -309,6 +313,14 @@ function renderNotesTimeline() {
                         <span>Select to Compose</span>
                     </button>
                     
+                    <button class="card-action-btn btn-copy-card" onclick="handleCopyCard('${note.id}', event)">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        <span>Copy Content</span>
+                    </button>
+                    
                     <a class="card-action-btn" href="${note.link}" target="_blank" onclick="event.stopPropagation()">
                         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
@@ -334,7 +346,7 @@ function renderEmptyState(title, text) {
    ========================================================================== */
 function handleCardClick(id, event) {
     // Avoid double triggering if child buttons are clicked
-    if (event.target.closest('a') || event.target.closest('.btn-tweet-now')) {
+    if (event.target.closest('a') || event.target.closest('.btn-tweet-now') || event.target.closest('.btn-copy-card')) {
         return;
     }
     
@@ -554,4 +566,88 @@ function showToast(message, type = 'success') {
     setTimeout(() => {
         toast.remove();
     }, 3000);
+}
+
+/**
+ * Copies the raw text content of a release note to the clipboard.
+ */
+async function handleCopyCard(id, event) {
+    event.stopPropagation();
+    const note = releaseNotes.find(n => n.id === id);
+    if (!note) return;
+    
+    try {
+        await navigator.clipboard.writeText(note.content_text);
+        showToast('Release content copied to clipboard!', 'success');
+    } catch (err) {
+        console.error('Copy failed:', err);
+        // Fallback for clipboard api block
+        const textarea = document.createElement('textarea');
+        textarea.value = note.content_text;
+        textarea.style.position = 'fixed';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            document.execCommand('copy');
+            showToast('Release content copied!', 'success');
+        } catch (copyErr) {
+            showToast('Clipboard copy failed. Copy manually.', 'error');
+        }
+        document.body.removeChild(textarea);
+    }
+}
+
+/**
+ * Exports the currently filtered release notes to a client-side downloadable CSV file.
+ */
+function exportToCSV() {
+    if (filteredNotes.length === 0) {
+        showToast('No notes available to export.', 'error');
+        return;
+    }
+    
+    // Helper to format values safely for CSV compliance
+    const escapeCSV = (val) => {
+        if (val === null || val === undefined) return '""';
+        const str = String(val);
+        return '"' + str.replace(/"/g, '""') + '"';
+    };
+    
+    const headers = ['Date', 'Type', 'Content Text', 'Source URL'];
+    const csvRows = [headers.map(escapeCSV).join(',')];
+    
+    filteredNotes.forEach(note => {
+        const row = [
+            note.date,
+            note.type,
+            note.content_text,
+            note.link
+        ];
+        csvRows.push(row.map(escapeCSV).join(','));
+    });
+    
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    // Dynamic file naming based on current user filters
+    let filename = 'bigquery_release_notes';
+    if (currentFilterType !== 'all') {
+        filename += `_${currentFilterType}`;
+    }
+    if (searchQuery) {
+        const safeSearch = searchQuery.replace(/[^a-z0-9]/gi, '_');
+        filename += `_search_${safeSearch}`;
+    }
+    filename += '.csv';
+    
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showToast(`Exported ${filteredNotes.length} updates to CSV!`, 'success');
 }
