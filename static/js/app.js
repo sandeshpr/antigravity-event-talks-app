@@ -19,6 +19,7 @@ const searchInput = document.getElementById('search-input');
 const clearSearchBtn = document.getElementById('clear-search-btn');
 const typeFiltersList = document.getElementById('type-filters-list');
 const exportCsvBtn = document.getElementById('export-csv-btn');
+const themeToggleBtn = document.getElementById('theme-toggle-btn');
 
 // Composer DOM Elements
 const composerSidebar = document.getElementById('composer-sidebar');
@@ -48,6 +49,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initial fetch of release notes
     fetchNotes(false);
     
+    // Initialize Theme
+    initTheme();
+    themeToggleBtn.addEventListener('click', toggleTheme);
+
     // Register Event Listeners
     refreshBtn.addEventListener('click', () => fetchNotes(true));
     searchInput.addEventListener('input', handleSearch);
@@ -650,4 +655,46 @@ function exportToCSV() {
     document.body.removeChild(link);
     
     showToast(`Exported ${filteredNotes.length} updates to CSV!`, 'success');
+}
+
+/**
+ * Initializes the theme from local storage configuration.
+ */
+function initTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    const isLight = savedTheme === 'light';
+    
+    document.body.classList.toggle('light-mode', isLight);
+    
+    const iconMoon = themeToggleBtn.querySelector('.icon-moon');
+    const iconSun = themeToggleBtn.querySelector('.icon-sun');
+    
+    if (isLight) {
+        iconMoon.style.display = 'block';
+        iconSun.style.display = 'none';
+    } else {
+        iconMoon.style.display = 'none';
+        iconSun.style.display = 'block';
+    }
+}
+
+/**
+ * Toggles theme between Light and Dark modes.
+ */
+function toggleTheme() {
+    const isLight = document.body.classList.toggle('light-mode');
+    localStorage.setItem('theme', isLight ? 'light' : 'dark');
+    
+    const iconMoon = themeToggleBtn.querySelector('.icon-moon');
+    const iconSun = themeToggleBtn.querySelector('.icon-sun');
+    
+    if (isLight) {
+        iconMoon.style.display = 'block';
+        iconSun.style.display = 'none';
+        showToast('Swapped to Light Theme', 'success');
+    } else {
+        iconMoon.style.display = 'none';
+        iconSun.style.display = 'block';
+        showToast('Swapped to Dark Theme', 'success');
+    }
 }
